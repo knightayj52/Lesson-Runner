@@ -472,6 +472,7 @@ $("analyze").onclick=async()=>{
     const p=`다음은 초등 단원 설계 문서다. 학습과학 기반 수업 실행을 위해 아래 JSON만 출력하라. 설명·마크다운 금지.
 규칙:
 - lessons: 문서의 활동을 수업 블록으로 묶어 순서대로. id는 L01부터. t=차시명(간결히), s=흐름명(단원열기/탐구1/탐구2/탐구3/단원닫기 등 문서의 구분), p=차시 수(정수, **최대 2**). 문서에서 3차시 이상으로 묶인 활동은 반드시 여러 lesson으로 쪼개고 차시명을 각각 다르게 붙여라.
+  **가장 중요**: 문서의 전개(차시) 계획을 처음부터 끝까지 **빠짐없이** lesson으로 만들어라. 문서에 총 차시 수가 적혀 있으면(예: 32차시) 모든 lesson의 p 합이 그 수와 같아야 한다. 탐구 단계 5~6개로 압축·요약해 버리는 것은 오답이다. 32차시 단원이면 lessons는 보통 16개 이상이다.
 - nodes: 학생이 남겨야 할 지식. 일반화·중심아이디어 문장은 선언 노드로 원문 유지. 성취기준의 기능(토의, 보고 글쓰기 등)은 절차 노드로. id는 N1부터, c=내용 한 문장, k="선언" 또는 "절차", src=그 지식이 확립되는 lesson id, m=예상 오개념 한 가지(문서에 있으면 그것, 없으면 학년 수준에서 흔한 것).
 - fw: 단원의 개념적 뼈대. type="PYP" 또는 "개념기반", big=중심 아이디어/핵심 일반화 원문, concepts=개념적 렌즈 배열, q={fact,concept,debate} 대표 탐구 질문, atl=ATL·기능 배열, profile=학습자상 배열, assess=총괄평가(GRASPS) 한 문장 요약.
 - lessons의 각 항목에 stage를 넣어라: 그 차시가 속한 탐구 단계명(예: 관계 맺기/집중하기/조사하기/조직 및 정리하기/일반화하기/전이하기/성찰하기, 또는 머독 사이클의 준비하기/찾아내기/범주화하기/더 나아가기/성찰 및 행동하기). 문서의 표현을 그대로 쓴다.
@@ -479,12 +480,19 @@ $("analyze").onclick=async()=>{
 - 노드는 5~9개, deps는 6~14개로 압축.
 JSON 형식: {"unit":"단원명","fw":{"type":"","big":"","concepts":[],"q":{"fact":"","concept":"","debate":""},"atl":[],"profile":[],"assess":""},"lessons":[{"id":"L01","t":"","s":"","p":1,"stage":""}],"nodes":[{"id":"N1","c":"","k":"선언","src":"L01","m":""}],"deps":[["L03","N1"]]}
 문서:
-${doc.slice(0,7000)}`;
+${doc.slice(0,30000)}`;
     let j;
-    try{ j=parseJson(await ai(p,3000,true)); }
-    catch(e1){ j=parseJson(await ai(p,3000,true)); }
+    try{ j=parseJson(await ai(p,10000,true)); }
+    catch(e1){ j=parseJson(await ai(p,10000,true)); }
     if(!j.lessons||!j.nodes) throw new Error("구조가 비어 있음");
     S.unit=j.unit||"단원"; S.fw=j.fw||{}; S.lessons=j.lessons; S.nodes=j.nodes; S.deps=j.deps||[];
+    const pSum=S.lessons.reduce((a,l)=>a+(l.p||1),0);
+    const nums=(doc.slice(0,2500).match(/(\d{1,3})\s*차시/g)||[])
+      .map(x=>parseInt(x)).filter(n=>n>=6&&n<=80);
+    const tot=nums.length?Math.max(...nums):0;
+    S.coverNote=(tot&&pSum<tot*0.75)
+      ?`⚠ 문서에는 약 ${tot}차시 단원으로 적혀 있는데, 추출된 것은 ${pSum}차시뿐입니다. 전개 계획이 일부만 반영된 것이니 '문서 분석'을 다시 눌러 주세요. 반복돼도 부족하면 문서의 차시 전개 부분이 입력창에 온전히 들어왔는지 확인하세요.`
+      :"";
     assignDates(); renderReview(); unlock(2); saveAuto();
     $("a-status").textContent="분석 완료 — 아래 ②에서 검토하세요.";
   }catch(e){
@@ -538,7 +546,7 @@ function renderReview(){
    <tr><td><b>인출</b></td><td>다시 꺼내기</td><td>배운 것을 보지 않고 기억에서 꺼내는 활동입니다. 다시 설명해 주는 복습과 다릅니다.</td></tr>
    <tr><td><b>다음 단원으로 넘길 지식</b></td><td>이월</td><td>단원 안에서 세 번 미만으로만 다뤄진 지식입니다. 그대로 두면 잊히기 쉬우므로, 다음 단원을 설계할 때 선수지식으로 연결하거나 따로 인출 시점을 잡도록 표시해 둡니다.</td></tr>
    </table></details>`;
-  $("lessonBox").innerHTML=GLOSS+(F.big?`<div class="warnbox" style="background:var(--brand-soft);border-color:#c3cbe8">
+  $("lessonBox").innerHTML=(S.coverNote?`<div class="err">${S.coverNote}</div>`:"")+GLOSS+(F.big?`<div class="warnbox" style="background:var(--brand-soft);border-color:#c3cbe8">
     <b>${F.type||"개념기반"} 뼈대 — 모든 자료 생성에 반영됩니다</b><br>
     중심 아이디어: ${F.big}<br>개념: ${(F.concepts||[]).join(" · ")||"—"}
     ${(F.atl&&F.atl.length)?"<br>ATL·기능: "+F.atl.join(" · "):""}
