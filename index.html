@@ -214,8 +214,8 @@ table.grid{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
 </section>
 
 <div class="foot">
-  <div style="font-size:13px;color:var(--ink);margin-bottom:6px"><b>수업 실행 도우미</b> v1.0 · ⓒ 영쌤 클래스 · CC BY-NC 4.0 (출처 표시 · 비영리) · <a href="https://knightayj52.github.io/PYP-Planner/" style="color:var(--brand)">PYP 탐구 단원 설계 도우미</a>의 후속 도구</div>
-  프로토타입 v1.0 · 계산 규칙: 교육과정 의존성 기반 스케줄링(하한 2일/상한 42일), 절차적 노드 숙달 배치(3회/5일), 흐름 교차 경고, 단원이월(3회 미만 → 종료+21일 권장). AI 생성(구조 추출·문항·과정안·활동지·배움공책·PPT 개요)은 이 미리보기 환경에서 바로 작동하며, 내려받은 파일이나 배포판에서는 ①의 'AI 연결 설정'에 Gemini(무료 할당량) 또는 Anthropic 키를 넣으면 됩니다. 키와 작업 상태는 이 브라우저에만 저장됩니다. 데이터는 브라우저 밖으로 저장되지 않으니 작업 상태 저장 버튼을 활용하세요.
+  <div style="font-size:13px;color:var(--ink);margin-bottom:6px"><b>수업 실행 도우미</b> v1.1 · ⓒ 영쌤 클래스 · CC BY-NC 4.0 (출처 표시 · 비영리) · <a href="https://knightayj52.github.io/PYP-Planner/" style="color:var(--brand)">PYP 탐구 단원 설계 도우미</a>의 후속 도구</div>
+  프로토타입 v1.1 · 계산 규칙: 교육과정 의존성 기반 스케줄링(하한 2일/상한 42일), 절차적 노드 숙달 배치(3회/5일), 흐름 교차 경고, 단원이월(3회 미만 → 종료+21일 권장). AI 생성(구조 추출·문항·과정안·활동지·배움공책·PPT 개요)은 이 미리보기 환경에서 바로 작동하며, 내려받은 파일이나 배포판에서는 ①의 'AI 연결 설정'에 Gemini(무료 할당량) 또는 Anthropic 키를 넣으면 됩니다. 키와 작업 상태는 이 브라우저에만 저장됩니다. 데이터는 브라우저 밖으로 저장되지 않으니 작업 상태 저장 버튼을 활용하세요.
 </div>
 </div>
 
@@ -435,16 +435,32 @@ function parseJson(t){
 /* ================= ① 분석 ================= */
 $("loadSample").onclick=()=>{$("doc").value=SAMPLE;};
 $("pdfBtn").onclick=()=>$("pdfFile").click();
+function pdfStat(msg,color){
+  const el=$("pdfStatus");
+  el.innerHTML=msg;
+  el.style.color=color||"var(--muted)";
+  el.style.flexBasis=/<br>/.test(msg)?"100%":"auto";
+}
 $("pdfFile").onchange=async e=>{
   const f=e.target.files[0]; if(!f)return;
-  $("pdfStatus").textContent="파일에서 텍스트를 꺼내는 중…";
+  pdfStat("파일에서 텍스트를 꺼내는 중…");
   try{
     if(/\.pdf$/i.test(f.name)){
+      if(typeof pdfjsLib==="undefined")
+        throw new Error("PDF 처리 라이브러리를 불러오지 못했습니다 — 인터넷 연결이나 교내 방화벽을 확인하세요. 텍스트를 직접 붙여넣으면 나머지 기능은 그대로 됩니다.");
       pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-      const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;
-      let txt="";
+      const buf=await f.arrayBuffer();
+      let pdf;
+      try{ pdf=await pdfjsLib.getDocument({data:buf}).promise; }
+      catch(e1){ pdf=await pdfjsLib.getDocument({data:buf,disableWorker:true}).promise; }
+      let txt="",raw="",pieces=0,drawn=0;
       for(let i=1;i<=pdf.numPages;i++){
-        const tc=await (await pdf.getPage(i)).getTextContent();
+        const page=await pdf.getPage(i);
+        const tc=await page.getTextContent();
+        pieces+=tc.items.length;
+        try{ drawn+=(await page.getOperatorList()).fnArray
+          .filter(fn=>fn===pdfjsLib.OPS.paintImageXObject||fn===pdfjsLib.OPS.paintJpegXObject).length; }catch(e2){}
+        raw+=tc.items.map(it=>it.str||"").join("")+"\n";
         let line="",last=null;
         for(const it of tc.items){
           if(!it.str){if(it.hasEOL&&line){txt+=line+"\n";line="";last=null;}continue;}
@@ -455,11 +471,28 @@ $("pdfFile").onchange=async e=>{
           if(it.hasEOL){txt+=line+"\n";line="";last=null;}
         }
         if(line)txt+=line+"\n";
+        if(pdf.numPages>3)pdfStat(`읽는 중… ${i}/${pdf.numPages}쪽`);
       }
-      $("doc").value=txt.replace(/[ \t]{2,}/g," ").replace(/\n{3,}/g,"\n\n").trim();
-    }else{$("doc").value=await f.text();}
-    $("pdfStatus").textContent=`「${f.name}」 불러옴 — 내용을 확인하고 '문서 분석'을 누르세요.`;
-  }catch(err){$("pdfStatus").textContent="읽기 실패: "+err.message;}
+      let out=txt.replace(/[ \t]{2,}/g," ").replace(/\n{3,}/g,"\n\n").trim();
+      let fallback=false;
+      if(!out){ out=raw.replace(/[ \t]{2,}/g," ").replace(/\n{3,}/g,"\n\n").trim(); fallback=!!out; }
+      $("doc").value=out;
+      if(!out){
+        pdfStat(`⚠ 「${f.name}」에서 글자를 한 자도 꺼내지 못했습니다 — ${pdf.numPages}쪽 · 글자 조각 ${pieces}개${drawn?` · 이미지 ${drawn}개`:""}.<br>`
+          +`<b>이 PDF에는 텍스트 층이 없습니다.</b> 글자가 문자가 아니라 그림으로 들어 있는 파일(스캔본, 또는 이미지로 내보낸 PDF)입니다. `
+          +`PDF 뷰어에서 본문 글자를 마우스로 드래그해 선택할 수 없으면 이 경우입니다.<br>`
+          +`해결 — 원본(한글·구글 문서·PYP-Planner 화면)에서 텍스트를 복사해 아래 칸에 붙여넣으세요. 그 뒤 과정은 완전히 똑같이 작동합니다.`,"#b3261e");
+      }else{
+        pdfStat(`✓ 「${f.name}」 불러옴 — ${pdf.numPages}쪽에서 ${out.length.toLocaleString()}자`
+          +(fallback?` <span style="color:#b3261e">(줄 구분 없이 간이 추출했습니다 — 아래 내용이 뭉쳐 있으면 원본에서 복사해 붙여넣는 편이 정확합니다)</span>`:"")
+          +`. 내용을 확인하고 '문서 분석'을 누르세요.`,fallback?"var(--muted)":"var(--proc)");
+      }
+    }else{
+      const t=await f.text(); $("doc").value=t;
+      pdfStat(t.trim()?`✓ 「${f.name}」 불러옴 — ${t.length.toLocaleString()}자. 내용을 확인하고 '문서 분석'을 누르세요.`
+        :`⚠ 「${f.name}」이 비어 있습니다.`, t.trim()?"var(--proc)":"#b3261e");
+    }
+  }catch(err){ pdfStat("읽기 실패: "+err.message,"#b3261e"); }
   e.target.value="";
 };
 $("analyze").onclick=async()=>{
