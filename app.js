@@ -87,8 +87,19 @@ function renderRecords(){
  const r=x.record;$('page-records').innerHTML=heading('REFLECT & CONTINUE','오늘의 발견이, 다음 수업으로.',S.unit)+`<div class="toolbar"><label>기록할 차시<select id="recordSession">${sessionOptions()}</select></label><button data-action="exportRecords">기록 내려받기</button></div><div class="panel record-card"><div><span class="pill">${x.number}차시 · ${x.date}</span><h3>${escapeHTML(x.title)}</h3><p class="muted small">수업 상태</p><div class="record-controls">${[['planned','예정'],['done','완료'],['missed','미실시'],['support','보충 필요']].map(([v,label])=>`<button class="${r.status===v?'active':''}" data-action="status" data-status="${v}">${label}</button>`).join('')}</div><div style="margin-top:18px"><button data-action="move" data-key="${x.key}">다음 날짜로 이동</button></div><p class="muted small">상태만 바꾸면 날짜는 유지됩니다. 미실시 수업을 옮기려면 날짜 이동을 선택하세요.</p></div><div><label>학생의 생각과 반응<textarea class="short" id="recordNote" placeholder="무엇을 이해했고, 어디에서 어려워했나요?">${escapeHTML(r.note||'')}</textarea></label><label>다음 수업에서 이어갈 것<textarea class="short" id="recordFollowup" placeholder="다시 꺼낼 질문, 보충할 활동을 한 줄로 남겨 주세요.">${escapeHTML(r.followup||'')}</textarea></label><span class="muted small">입력하면 자동 저장됩니다.</span></div></div><div class="panel"><h2>지금까지의 기록</h2>${ss.filter(v=>v.record.note||v.record.followup||v.record.status!=='planned').reverse().map(v=>`<div class="lesson-editor"><div class="section-heading"><b>${v.number}차시 · ${escapeHTML(v.title)}</b>${statusPill(v.record.status)}</div>${v.record.note?`<p style="white-space:pre-wrap">${escapeHTML(v.record.note)}</p>`:''}${v.record.followup?`<p class="notice">다음으로: ${escapeHTML(v.record.followup)}</p>`:''}<button data-action="openRecord" data-key="${v.key}">기록 수정</button></div>`).join('')||'<p class="muted">첫 수업의 기록을 남겨 보세요.</p>'}</div>`;
 }
 /* AI: explicit provider, cancellable requests, verifiable connection state. */
-const MODELS={gemini:[['gemini-3.1-flash-lite','Gemini 3.1 Flash-Lite'],['gemini-2.5-flash','Gemini 2.5 Flash']],anthropic:[['claude-sonnet-4-6','Claude Sonnet 4.6'],['claude-haiku-4-5-20251001','Claude Haiku 4.5']]};
-function renderModels(selected=''){$('modelSel').innerHTML=MODELS[$('prov').value].map(([v,t])=>`<option value="${v}">${t}</option>`).join('')+'<option value="__custom__">직접 입력…</option>';if(selected){if(MODELS[$('prov').value].some(([v])=>v===selected))$('modelSel').value=selected;else{$('modelSel').value='__custom__';$('modelName').value=selected;}}toggleCustom();}
+// Verified against https://ai.google.dev/gemini-api/docs/models on 2026-10-08.
+const MODELS={gemini:[['gemini-3.5-flash-lite','Gemini 3.5 Flash-Lite · 빠르고 경제적'],['gemini-3.8-flash','Gemini 3.8 Flash · 복잡한 자료 작업'],['gemini-3.1-pro-preview','Gemini 3.1 Pro · 미리보기']],anthropic:[['claude-sonnet-4-6','Claude Sonnet 4.6'],['claude-haiku-4-5-20251001','Claude Haiku 4.5']]};
+let discoveredModels=[];
+try{const saved=JSON.parse(readStorage('lr_gemini_catalog')||'null');if(saved&&Array.isArray(saved.models)&&Date.now()-saved.at<7*86400000)discoveredModels=saved.models.filter(m=>Array.isArray(m)&&typeof m[0]==='string'&&typeof m[1]==='string'&&/^[a-zA-Z0-9._:-]+$/.test(m[0])).slice(0,1000);}catch{}
+function renderModels(selected=''){
+ const gemini=$('prov').value==='gemini',models=gemini&&discoveredModels.length?discoveredModels:MODELS[$('prov').value];
+ $('modelSel').innerHTML=models.map(([v,t])=>`<option value="${escapeHTML(v)}">${escapeHTML(t)}</option>`).join('')+'<option value="__custom__">직접 입력…</option>';
+ if(selected){if(models.some(([v])=>v===selected))$('modelSel').value=selected;else{$('modelSel').value='__custom__';$('modelName').value=selected;}}toggleCustom();
+ if($('modelHelp'))$('modelHelp').textContent=gemini?(discoveredModels.length?'최근 조회한 모델 목록입니다. 키를 변경했거나 새 모델이 필요하면 목록을 갱신해 주세요.':'2026.10.08 공식 문서 기준 추천 목록입니다. API 키 입력 후 ‘최신 모델 조회’를 눌러 목록을 갱신해 주세요.')+' 목록에 표시되어도 요금·할당량·접근 권한은 계정에 따라 다르므로 연결 확인이 필요합니다.':'모델을 선택하거나 모델 ID를 직접 입력한 뒤 연결을 확인해 주세요.';
+}
+function textModels(models){
+ return [...new Map(models.filter(m=>m.supportedGenerationMethods?.includes('generateContent')&&/^models\/gemini/.test(m.name)&&!/image|tts|robotics|embedding|live|audio|banana|omni|transcribe|computer-use|vision/i.test(m.name)).map(m=>[m.name,[m.name.replace('models/',''),m.displayName||m.name]])).values()].sort((a,b)=>b[0].localeCompare(a[0],'en',{numeric:true}));
+}
 function toggleCustom(){$('customWrap').hidden=$('modelSel').value!=='__custom__';}
 function currentModel(){return $('modelSel').value==='__custom__'?$('modelName').value.trim():$('modelSel').value;}
 function updateKeyLink(){$('keyLink').href=$('prov').value==='gemini'?'https://aistudio.google.com/apikey':'https://console.anthropic.com/settings/keys';}
@@ -117,7 +128,17 @@ lessons: id는 L01부터 고유하게, t 제목, s 탐구 흐름, stage 탐구 �
  if(S!==original){showPage('setup');showStep('review');}
 }
 async function testAI(){if(!requireAI())return;connectionState('checking','선택한 모델에 연결하고 있습니다.');await task('AI 연결을 확인하고 있습니다.',async()=>{await ai('연결 확인입니다. 확인이라고 한 단어만 답하세요.',64,false,60000);connectionState('ready',currentModel()+' 모델의 응답을 확인했습니다.');saveKeyPrefs();});}
-async function listModels(){if(!requireAI())return;if($('prov').value!=='gemini'){toast('자동 모델 조회는 Gemini에서 지원합니다. Claude는 모델 선택 또는 직접 입력을 사용하세요.');return;}await task('사용 가능한 모델을 확인하고 있습니다.',async()=>{const key=$('apiKey').value.trim(),all=[];let token='';do{const d=await request('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100'+(token?'&pageToken='+encodeURIComponent(token):''),{headers:{'x-goog-api-key':key}},60000);all.push(...(d.models||[]));token=d.nextPageToken||'';if(all.length>1000)break;}while(token);const models=all.filter(m=>m.supportedGenerationMethods?.includes('generateContent')&&/^models\/gemini/.test(m.name)&&!/image|tts|robotics|embedding|live/i.test(m.name));if(!models.length)throw Error('텍스트 생성에 사용할 모델이 없습니다.');const before=currentModel();$('modelSel').innerHTML=models.map(m=>`<option value="${escapeHTML(m.name.replace('models/',''))}">${escapeHTML(m.displayName||m.name)}</option>`).join('')+'<option value="__custom__">직접 입력…</option>';if(models.some(m=>m.name==='models/'+before))$('modelSel').value=before;toggleCustom();connectionState('未確認',`${models.length}개 모델을 찾았습니다. 선택한 모델의 ‘연결 확인’을 눌러 주세요.`);saveKeyPrefs();});}
+async function listModels(){
+ if(!requireAI())return;if($('prov').value!=='gemini'){toast('자동 모델 조회는 Gemini에서 지원합니다. Claude는 모델 선택 또는 직접 입력을 사용하세요.');return;}
+ await task('최신 모델 목록을 확인하고 있습니다.',async()=>{
+  const key=$('apiKey').value.trim(),before=currentModel(),all=[],seen=new Set();let token='';
+  do{const d=await request('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100'+(token?'&pageToken='+encodeURIComponent(token):''),{headers:{'x-goog-api-key':key}},60000);all.push(...(d.models||[]));token=d.nextPageToken||'';if(token&&seen.has(token))throw Error('모델 조회가 반복되었습니다. 다시 조회해 주세요.');seen.add(token);if(all.length>1000)throw Error('모델 목록이 너무 큽니다. 다시 조회해 주세요.');}while(token);
+  const models=textModels(all);if(!models.length)throw Error('텍스트 생성에 사용할 모델이 없습니다.');
+  if($('prov').value!=='gemini'||$('apiKey').value.trim()!==key)return;
+  discoveredModels=models;try{localStorage.setItem('lr_gemini_catalog',JSON.stringify({at:Date.now(),models}));}catch{}
+  renderModels(before);connectionState('未確認',`${models.length}개 모델을 조회했습니다. `+(models.some(([id])=>id===before)?'선택한 모델의 ‘연결 확인’을 눌러 주세요.':'기존 선택은 직접 입력으로 보존했습니다. 목록에서 사용할 모델을 새로 선택해 주세요.'));saveKeyPrefs();
+ });
+}
 function fwBlock(){const F=S.fw;return `대상: ${S.profile.grade} / 교과: ${S.profile.subject} / 한 차시 ${S.profile.minutes}분
 단원: ${S.unit} / 설계 프레임워크: ${F.type||'개념기반 탐구'}
 성취기준 원문(아래 내용만 사용, 비어 있으면 '교사 확인 필요'로 표시, 코드를 지어내지 말 것): ${S.profile.standards||'교사 확인 필요'}
