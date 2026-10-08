@@ -14,3 +14,5 @@
 html{font-size:var(--font)}.password-wrap button{flex-shrink:0;min-width:62px;white-space:nowrap}
 
 .model-help{font-size:.82rem;line-height:1.7;word-break:keep-all}.ai-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ai-actions button,.ai-actions .button{word-break:keep-all;min-width:0;padding:10px 8px;font-size:.84rem}
+
+.drive-panel{margin-top:22px}.drive-panel summary{cursor:pointer;font-weight:600;padding:12px 0}.drive-panel code{overflow-wrap:anywhere}.drive-panel li{margin:10px 0;line-height:1.7}.drive-actions{margin-top:18px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.drive-actions button{word-break:keep-all}.drive-file{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;border-top:1px solid var(--line)}.drive-file>div{min-width:0}.drive-file strong{display:block;overflow-wrap:anywhere;font-size:.9rem}.drive-file small{display:block;color:var(--muted);margin-top:6px}.drive-file button{flex-shrink:0;word-break:keep-all}@media(max-width:480px){.drive-file{align-items:stretch;flex-direction:column}.drive-actions button{font-size:.85rem;padding:10px 8px}}

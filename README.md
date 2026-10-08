@@ -53,3 +53,21 @@ node --test tests/*.test.js
 - `styles.css`: 반응형 UI, 테마, 접근성
 
 ⓒ 영쌤 클래스 · CC BY-NC 4.0. [PYP 탐구 단원 설계 도우미](https://knightayj52.github.io/PYP-Planner/)와 함께 사용할 수 있습니다.
+
+
+## Google Drive 단원 저장 (v2.1)
+
+연결 및 화면 설정에서 Google 계정을 연결한 뒤 **현재 단원 저장**을 누릅니다. 자동 클라우드 동기화는 하지 않습니다. 앱이 만든 `수업 실행 도우미` 폴더에 매번 별도 JSON 저장본을 만들며 이전 버전을 덮어쓰거나 삭제하지 않습니다. 다른 기기에서 동일한 OAuth 앱과 계정으로 연결하면 저장본을 조회할 수 있습니다. 불러오기는 기존 단원을 보존하고 ID가 겹치면 사본으로 추가합니다. API 키는 백업에 포함되지 않고 OAuth 액세스 토큰은 메모리에만 유지합니다. 연결이 만료되면 버튼으로 다시 연결해야 합니다. 5MB 이하 단원을 지원하며 더 큰 자료는 기존 파일 백업을 사용합니다.
+
+### 최초 1회 관리자 설정
+
+1. Google Cloud 프로젝트에서 Google Drive API를 활성화합니다.
+2. Google Auth Platform의 브랜딩·대상·연락처를 설정합니다. 테스트 상태에서는 이용 계정을 테스트 사용자로 추가합니다. 학교 계정은 조직 정책에 따라 관리자 허용이 필요할 수 있습니다.
+3. 데이터 액세스에 `https://www.googleapis.com/auth/drive.file`을 등록합니다. 전체 드라이브 권한은 요청하지 않습니다.
+4. OAuth 클라이언트를 **웹 애플리케이션** 유형으로 만들고 승인된 JavaScript 원본에 `https://knightayj52.github.io`를 등록합니다. `/Lesson-Runner/` 경로는 넣지 않습니다. GIS 팝업 토큰 방식을 사용하므로 리디렉션 URI는 필요하지 않습니다.
+5. 공개 클라이언트 ID(`…apps.googleusercontent.com`)를 `drive-config.js`의 `LR_GOOGLE_CLIENT_ID`에 등록합니다. **클라이언트 시크릿은 등록하지 않습니다.** 설정 화면에서도 기기별 ID를 넣어 시험할 수 있습니다. 모든 기기에서 같은 클라이언트를 사용해야 앱 저장본에 일관되게 접근할 수 있습니다.
+6. 실제 계정으로 연결 → 샘플 단원 저장 → 다른 브라우저에서 같은 계정으로 연결 → 사본 불러오기를 확인합니다. 인증 설정 전에는 실제 계정 통합 테스트를 완료할 수 없습니다.
+
+앱의 ‘이 기기 연결 해제’는 메모리의 토큰을 버립니다. Google 계정에 부여한 권한을 취소하거나 원격 저장본을 삭제하지는 않습니다. 권한 취소는 Google 계정의 연결된 앱 관리에서, 저장본 삭제는 내 드라이브에서 할 수 있습니다.
+
+공식 문서: [GIS 토큰 모델](https://developers.google.com/identity/oauth2/web/guides/use-token-model), [Drive 권한 범위](https://developers.google.com/workspace/drive/api/guides/api-specific-auth), [파일 업로드](https://developers.google.com/workspace/drive/api/guides/manage-uploads).
