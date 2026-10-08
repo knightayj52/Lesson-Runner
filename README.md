@@ -42,7 +42,7 @@
 빌드 없이 GitHub Pages에서 실행됩니다. `python -m http.server 8765`로 로컬 실행할 수 있습니다.
 
 ```sh
-node --test tests/core.test.js
+node --test tests/*.test.js
 ```
 
 - `core.js`: 날짜, 작업 스키마, 복습 계산, 캘린더 생성

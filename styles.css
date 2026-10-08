@@ -10,3 +10,5 @@
 @media(pointer:coarse){button,.button{min-height:44px}input,select,textarea{font-size:16px!important}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 @media print{.sidebar,.topbar,footer,button,.button,.stepper,.toolbar,#toast{display:none!important}.shell{display:block}body,main{background:#fff;padding:0}.panel{box-shadow:none;border:0}.doc-body{border:0;padding:0}dialog{display:none}}
+
+html{font-size:var(--font)}.password-wrap button{flex-shrink:0;min-width:62px;white-space:nowrap}
