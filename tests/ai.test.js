@@ -1,0 +1,10 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+function context(provider='gemini',key='test-key',model='gemini-test'){
+ const source=fs.readFileSync(require.resolve('../app.js'),'utf8');const values={prov:{value:provider},apiKey:{value:key}};const requests=[];
+ const context={$:id=>values[id],currentModel:()=>model,request:async(url,options)=>{requests.push({url,options});return provider==='gemini'?{candidates:[{content:{parts:[{text:'確認',thought:true},{text:'확인'}]}}]}:{content:[{type:'text',text:'확인'}]};},Error,JSON,encodeURIComponent};vm.createContext(context);vm.runInContext(source.slice(source.indexOf('async function ai('),source.indexOf('async function task(')),context);return {context,requests};
+}
+test('empty Gemini key fails locally and never falls through to Anthropic',async()=>{const {context:c,requests}=context('gemini','');await assert.rejects(()=>c.ai('test'),/키/);assert.equal(requests.length,0);});
+test('Gemini key stays in header and visible text excludes thought parts',async()=>{const {context:c,requests}=context();assert.equal(await c.ai('test',100,true),'확인');assert.ok(!requests[0].url.includes('test-key'));assert.equal(requests[0].options.headers['x-goog-api-key'],'test-key');assert.equal(JSON.parse(requests[0].options.body).generationConfig.responseMimeType,'application/json');});
+test('Claude respects selected model',async()=>{const {context:c,requests}=context('anthropic','test-key','claude-test');assert.equal(await c.ai('test'),'확인');assert.equal(JSON.parse(requests[0].options.body).model,'claude-test');});
+test('truncated model output is rejected before rendering',async()=>{const {context:c}=context();c.request=async()=>({candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:'partial'}]}}]});await assert.rejects(()=>c.ai('test'),/잘렸/);});
+test('invalid structured AI output is rejected',()=>{const {context:c}=context();assert.equal(c.parseJson('```json\n{"a":1}\n```').a,1);assert.throws(()=>c.parseJson('not json'),/형식/);});
